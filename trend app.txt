@@ -1,0 +1,162 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Trends App</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Market Trends App</h1>
+        <canvas id="marketChart"></canvas>
+        <div id="buySignal" class="buy-signal">
+            <span class="dot"></span> Buy Signal Detected!
+        </div>
+        <button id="refreshButton">Refresh Data</button>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.container {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    width: 90%;
+    max-width: 800px;
+}
+
+h1 {
+    margin-bottom: 20px;
+}
+
+#marketChart {
+    margin: 20px 0;
+}
+
+.buy-signal {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    margin-top: 20px;
+    color: green;
+    font-size: 18px;
+}
+
+.dot {
+    height: 10px;
+    width: 10px;
+    background-color: green;
+    border-radius: 50%;
+    margin-right: 10px;
+}
+
+button {
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+// API Key for Alpha Vantage
+const API_KEY = 'YOUR_ALPHA_VANTAGE_API_KEY';
+const SYMBOL = 'IBM'; // Stock symbol to track
+
+// Chart setup
+const ctx = document.getElementById('marketChart').getContext('2d');
+const marketChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: [], // Time labels (e.g., dates)
+        datasets: [{
+            label: 'Stock Price',
+            data: [], // Stock prices
+            borderColor: 'blue',
+            backgroundColor: 'rgba(0, 0, 255, 0.1)',
+            fill: true,
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            x: {
+                title: {
+                    display: true,
+                    text: 'Date'
+                }
+            },
+            y: {
+                title: {
+                    display: true,
+                    text: 'Price (USD)'
+                }
+            }
+        }
+    }
+});
+
+// Buy signal indicator
+const buySignal = document.getElementById('buySignal');
+
+// Fetch market data
+async function fetchMarketData() {
+    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${SYMBOL}&apikey=${API_KEY}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    return data;
+}
+
+// Process data and update chart
+function updateChart(data) {
+    const timeSeries = data['Time Series (Daily)'];
+    const dates = Object.keys(timeSeries).reverse(); // Sort dates in ascending order
+    const prices = dates.map(date => parseFloat(timeSeries[date]['4. close']));
+
+    // Update chart data
+    marketChart.data.labels = dates;
+    marketChart.data.datasets[0].data = prices;
+    marketChart.update();
+
+    // Check for buy signal
+    const buySignalDetected = detectBuySignal(prices);
+    buySignal.style.display = buySignalDetected ? 'flex' : 'none';
+}
+
+// Detect buy signal (simple moving average crossover)
+function detectBuySignal(prices) {
+    const shortTermMA = prices.slice(-5).reduce((a, b) => a + b, 0) / 5; // 5-day moving average
+    const longTermMA = prices.slice(-20).reduce((a, b) => a + b, 0) / 20; // 20-day moving average
+    return shortTermMA > longTermMA;
+}
+
+// Refresh data on button click
+document.getElementById('refreshButton').addEventListener('click', async () => {
+    const data = await fetchMarketData();
+    updateChart(data);
+});
+
+// Initial load
+fetchMarketData().then(updateChart);
+
+
