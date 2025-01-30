@@ -1,0 +1,79 @@
+﻿// API Key for Alpha Vantage
+const API_KEY = 'YOUR_ALPHA_VANTAGE_API_KEY';
+const SYMBOL = 'IBM'; // Stock symbol to track
+
+// Chart setup
+const ctx = document.getElementById('marketChart').getContext('2d');
+const marketChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: [], // Time labels (e.g., dates)
+        datasets: [{
+            label: 'Stock Price',
+            data: [], // Stock prices
+            borderColor: 'blue',
+            backgroundColor: 'rgba(0, 0, 255, 0.1)',
+            fill: true,
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            x: {
+                title: {
+                    display: true,
+                    text: 'Date'
+                }
+            },
+            y: {
+                title: {
+                    display: true,
+                    text: 'Price (USD)'
+                }
+            }
+        }
+    }
+});
+
+// Buy signal indicator
+const buySignal = document.getElementById('buySignal');
+
+// Fetch market data
+async function fetchMarketData() {
+    const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${SYMBOL}&apikey=${API_KEY}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    return data;
+}
+
+// Process data and update chart
+function updateChart(data) {
+    const timeSeries = data['Time Series (Daily)'];
+    const dates = Object.keys(timeSeries).reverse(); // Sort dates in ascending order
+    const prices = dates.map(date => parseFloat(timeSeries[date]['4. close']));
+
+    // Update chart data
+    marketChart.data.labels = dates;
+    marketChart.data.datasets[0].data = prices;
+    marketChart.update();
+
+    // Check for buy signal
+    const buySignalDetected = detectBuySignal(prices);
+    buySignal.style.display = buySignalDetected ? 'flex' : 'none';
+}
+
+// Detect buy signal (simple moving average crossover)
+function detectBuySignal(prices) {
+    const shortTermMA = prices.slice(-5).reduce((a, b) => a + b, 0) / 5; // 5-day moving average
+    const longTermMA = prices.slice(-20).reduce((a, b) => a + b, 0) / 20; // 20-day moving average
+    return shortTermMA > longTermMA;
+}
+
+// Refresh data on button click
+document.getElementById('refreshButton').addEventListener('click', async () => {
+    const data = await fetchMarketData();
+    updateChart(data);
+});
+
+// Initial load
+fetchMarketData().then(updateChart);
